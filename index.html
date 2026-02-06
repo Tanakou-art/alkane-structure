@@ -72,18 +72,18 @@
     <button id="toggleUIPanel" class="toggle-ui-btn hidden">メニュー表示</button>
 
     <div id="controlsPanel" class="controls">
-        <div class="flex justify-between items-center mb-3">
+        <div class="flex justify-between items-center mb-4">
             <h1 class="text-lg font-bold text-indigo-600">アルカン構造</h1>
-            <button id="hideUIPanel" class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 hover:bg-gray-200">閉じる</button>
+            <button id="hideUIPanel" class="text-xs bg-gray-100 px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-200 ml-4">閉じる</button>
         </div>
         
         <div class="mb-3">
             <label class="block mb-1 text-xs font-semibold">炭素数:</label>
             <select id="carbonSelect" class="bg-white border border-gray-300 rounded-lg p-2 w-full text-sm outline-none">
-                <option value="1">C1: メタン</option>
+                <option value="1" selected>C1: メタン</option>
                 <option value="2">C2: エタン</option>
                 <option value="3">C3: プロパン</option>
-                <option value="4" selected>C4: ブタン</option>
+                <option value="4">C4: ブタン</option>
                 <option value="5">C5: ペンタン</option>
                 <option value="6">C6: ヘキサン</option>
                 <option value="7">C7: ヘプタン</option>
@@ -111,11 +111,11 @@
         </button>
     </div>
 
-    <!-- AR機能用（UIからARの文字は消すが、機能自体は残しています） -->
+    <!-- AR機能用 -->
     <model-viewer id="ar-viewer" ar ar-modes="webxr quick-look" camera-controls touch-action="none"></model-viewer>
 
     <div id="description" class="info">
-        <h2 id="molTitle" class="font-bold text-sm text-gray-800">ブタン</h2>
+        <h2 id="molTitle" class="font-bold text-sm text-gray-800">メタン</h2>
         <p class="text-[10px] text-gray-600">iPadなら「ホーム画面に追加」でアプリ化できます。</p>
     </div>
 
