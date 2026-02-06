@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>アルカン構造AR</title>
+    <title>アルカン構造シミュレーター</title>
     
     <!-- PWA / iOS App Settings -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="アルカンAR">
+    <meta name="apple-mobile-web-app-title" content="アルカン構造">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1048/1048455.png">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -73,7 +73,7 @@
 
     <div id="controlsPanel" class="controls">
         <div class="flex justify-between items-center mb-3">
-            <h1 class="text-lg font-bold text-indigo-600">アルカン構造 AR</h1>
+            <h1 class="text-lg font-bold text-indigo-600">アルカン構造</h1>
             <button id="hideUIPanel" class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 hover:bg-gray-200">閉じる</button>
         </div>
         
@@ -107,10 +107,11 @@
         <button onclick="resetView()" class="bg-white border border-gray-100 py-2 rounded-lg text-[10px] text-gray-500 font-bold w-full mb-3">視点リセット</button>
         
         <button id="startAR" class="ar-btn text-white font-bold py-3 rounded-xl w-full flex items-center justify-center gap-2 shadow-lg text-sm">
-            ARモードで見る
+            空間モードで見る
         </button>
     </div>
 
+    <!-- AR機能用（UIからARの文字は消すが、機能自体は残しています） -->
     <model-viewer id="ar-viewer" ar ar-modes="webxr quick-look" camera-controls touch-action="none"></model-viewer>
 
     <div id="description" class="info">
