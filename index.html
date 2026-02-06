@@ -15,13 +15,43 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- QRコード生成ライブラリ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
     <style>
         body { margin: 0; overflow: hidden; background-color: #f3f4f6; color: #1f2937; font-family: sans-serif; touch-action: manipulation; }
         canvas { display: block; }
-        .controls { position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(255,255,255,0.95); padding: 15px; border-radius: 12px; max-width: 280px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; max-height: 85vh; overflow-y: auto; }
+        .controls { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            z-index: 10; 
+            background: rgba(255,255,255,0.95); 
+            padding: 15px; 
+            border-radius: 12px; 
+            max-width: 280px; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
+            border: 1px solid #e5e7eb; 
+            max-height: 85vh; 
+            overflow-y: auto;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .controls.minimized {
+            transform: translateX(-200%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .toggle-ui-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 20;
+            background: #4f46e5;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
         .info { position: absolute; bottom: 20px; left: 20px; z-index: 10; background: rgba(255,255,255,0.9); padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; max-width: calc(100% - 40px); }
         #ar-viewer { display: none; }
         .ar-btn { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
@@ -31,17 +61,21 @@
         
         @media (max-width: 768px) {
             .controls { top: 10px; left: 10px; width: 240px; padding: 12px; }
+            .toggle-ui-btn { top: 10px; left: 10px; }
             .info { bottom: 10px; left: 10px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="controls">
-        <h1 class="text-lg font-bold mb-3 text-indigo-600 flex justify-between items-center">
-            アルカン構造 AR
-            <button id="showQR" class="text-xs bg-gray-200 px-2 py-1 rounded text-gray-600">共有</button>
-        </h1>
+    <!-- UI出し入れ用ボタン -->
+    <button id="toggleUIPanel" class="toggle-ui-btn hidden">メニュー表示</button>
+
+    <div id="controlsPanel" class="controls">
+        <div class="flex justify-between items-center mb-3">
+            <h1 class="text-lg font-bold text-indigo-600">アルカン構造 AR</h1>
+            <button id="hideUIPanel" class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 hover:bg-gray-200">閉じる</button>
+        </div>
         
         <div class="mb-3">
             <label class="block mb-1 text-xs font-semibold">炭素数:</label>
@@ -82,16 +116,6 @@
     <div id="description" class="info">
         <h2 id="molTitle" class="font-bold text-sm text-gray-800">ブタン</h2>
         <p class="text-[10px] text-gray-600">iPadなら「ホーム画面に追加」でアプリ化できます。</p>
-    </div>
-
-    <!-- 共有・QRモーダル -->
-    <div id="qrModal" class="hidden fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-6">
-        <div class="bg-white p-6 rounded-3xl max-w-sm w-full text-center">
-            <h3 class="font-bold text-lg mb-2">iPadで起動する</h3>
-            <p class="text-xs text-gray-500 mb-4">カメラでスキャンしてiPadで開いてください。</p>
-            <div id="qrcode" class="flex justify-center mb-6"></div>
-            <button onclick="document.getElementById('qrModal').classList.add('hidden')" class="bg-gray-100 w-full py-3 rounded-xl font-bold text-gray-700">閉じる</button>
-        </div>
     </div>
 
     <script>
@@ -161,13 +185,6 @@
             setupInteractions();
             updateUI();
             animate();
-            
-            // Generate QR for current URL
-            new QRCode(document.getElementById("qrcode"), {
-                text: window.location.href,
-                width: 200,
-                height: 200
-            });
         }
 
         function build3D(node, position, incomingVec) {
@@ -280,7 +297,21 @@
             document.getElementById('carbonSelect').onchange = () => { currentIsomerIndex = 0; rotationMap = {}; rotationFlags = {}; updateUI(); };
             document.getElementById('toggleLabels').onclick = () => { showLabels = !showLabels; updateMolecule(); };
             document.getElementById('toggleElectrons').onclick = () => { showElectrons = !showElectrons; updateMolecule(); };
-            document.getElementById('showQR').onclick = () => { document.getElementById('qrModal').classList.remove('hidden'); };
+            
+            // UIパネルの表示・非表示
+            const panel = document.getElementById('controlsPanel');
+            const showBtn = document.getElementById('toggleUIPanel');
+            const hideBtn = document.getElementById('hideUIPanel');
+
+            hideBtn.onclick = () => {
+                panel.classList.add('minimized');
+                showBtn.classList.remove('hidden');
+            };
+            showBtn.onclick = () => {
+                panel.classList.remove('minimized');
+                showBtn.classList.add('hidden');
+            };
+
             document.getElementById('autoPlayBtn').onclick = function() {
                 isGlobalAutoPlaying = !isGlobalAutoPlaying;
                 activeControls.forEach(c => rotationFlags[c.id] = isGlobalAutoPlaying);
