@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>アルカン構造AR</title>
+    
+    <!-- PWA / iOS App Settings -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="アルカンAR">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1048/1048455.png">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- QRコード生成ライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f3f4f6; color: #1f2937; font-family: sans-serif; touch-action: manipulation; }
+        canvas { display: block; }
+        .controls { position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(255,255,255,0.95); padding: 15px; border-radius: 12px; max-width: 280px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; max-height: 85vh; overflow-y: auto; }
+        .info { position: absolute; bottom: 20px; left: 20px; z-index: 10; background: rgba(255,255,255,0.9); padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; max-width: calc(100% - 40px); }
+        #ar-viewer { display: none; }
+        .ar-btn { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+        .struct-btn { background: #fff; border: 1px solid #d1d5db; color: #374151; }
+        .struct-btn.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+        .hidden { display: none; }
+        
+        @media (max-width: 768px) {
+            .controls { top: 10px; left: 10px; width: 240px; padding: 12px; }
+            .info { bottom: 10px; left: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <h1 class="text-lg font-bold mb-3 text-indigo-600 flex justify-between items-center">
+            アルカン構造 AR
+            <button id="showQR" class="text-xs bg-gray-200 px-2 py-1 rounded text-gray-600">共有</button>
+        </h1>
+        
+        <div class="mb-3">
+            <label class="block mb-1 text-xs font-semibold">炭素数:</label>
+            <select id="carbonSelect" class="bg-white border border-gray-300 rounded-lg p-2 w-full text-sm outline-none">
+                <option value="1">C1: メタン</option>
+                <option value="2">C2: エタン</option>
+                <option value="3">C3: プロパン</option>
+                <option value="4" selected>C4: ブタン</option>
+                <option value="5">C5: ペンタン</option>
+                <option value="6">C6: ヘキサン</option>
+                <option value="7">C7: ヘプタン</option>
+                <option value="8">C8: オクタン</option>
+            </select>
+        </div>
+
+        <div id="isomerControls" class="mb-3 hidden">
+            <label class="block mb-1 text-xs font-semibold">異性体:</label>
+            <div id="isomerButtons" class="flex gap-1.5 flex-wrap"></div>
+        </div>
+
+        <div id="rotationControls" class="mb-3 space-y-1.5 max-h-40 overflow-y-auto pr-1"></div>
+
+        <div class="grid grid-cols-2 gap-2 mb-3">
+            <button id="toggleLabels" class="bg-blue-500 text-white font-bold py-2 rounded-xl text-[10px]">炭素番号</button>
+            <button id="toggleElectrons" class="bg-amber-500 text-white font-bold py-2 rounded-xl text-[10px]">電子対</button>
+        </div>
+
+        <button id="autoPlayBtn" class="bg-indigo-600 text-white text-[10px] w-full py-2 rounded-lg font-bold mb-2">自動回転 ON</button>
+        <button onclick="resetView()" class="bg-white border border-gray-100 py-2 rounded-lg text-[10px] text-gray-500 font-bold w-full mb-3">視点リセット</button>
+        
+        <button id="startAR" class="ar-btn text-white font-bold py-3 rounded-xl w-full flex items-center justify-center gap-2 shadow-lg text-sm">
+            ARモードで見る
+        </button>
+    </div>
+
+    <model-viewer id="ar-viewer" ar ar-modes="webxr quick-look" camera-controls touch-action="none"></model-viewer>
+
+    <div id="description" class="info">
+        <h2 id="molTitle" class="font-bold text-sm text-gray-800">ブタン</h2>
+        <p class="text-[10px] text-gray-600">iPadなら「ホーム画面に追加」でアプリ化できます。</p>
+    </div>
+
+    <!-- 共有・QRモーダル -->
+    <div id="qrModal" class="hidden fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-6">
+        <div class="bg-white p-6 rounded-3xl max-w-sm w-full text-center">
+            <h3 class="font-bold text-lg mb-2">iPadで起動する</h3>
+            <p class="text-xs text-gray-500 mb-4">カメラでスキャンしてiPadで開いてください。</p>
+            <div id="qrcode" class="flex justify-center mb-6"></div>
+            <button onclick="document.getElementById('qrModal').classList.add('hidden')" class="bg-gray-100 w-full py-3 rounded-xl font-bold text-gray-700">閉じる</button>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, moleculeGroup;
+        let showElectrons = false, showLabels = false, currentIsomerIndex = 0, isGlobalAutoPlaying = false;
+        let rotationMap = {}, rotationFlags = {}, activeControls = [];
+
+        const BOND_CC = 1.54, BOND_CH = 1.09, RADIUS_C = 0.4, RADIUS_H = 0.25, RADIUS_E = 0.08;
+        const SIN_TETRA = Math.sqrt(8/9), COS_TETRA = -1/3;
+
+        function createNode(type, children = [], iupac = null) {
+            return { type, id: Math.random().toString(36).substr(2, 9), children, iupac };
+        }
+
+        const ISOMERS = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [] };
+
+        function generateLinear(n, name) {
+            const rootIdx = Math.floor((n - 1) / 2);
+            const root = createNode('C', [], (rootIdx + 1).toString());
+            let current = root;
+            for (let i = rootIdx - 1; i >= 0; i--) {
+                const nextC = createNode('C', [], (i + 1).toString());
+                for(let h=0; h<(i === 0 ? 3 : 2); h++) nextC.children.push(createNode('H'));
+                current.children.push(nextC);
+                current = nextC;
+            }
+            current = root;
+            for (let i = rootIdx + 1; i < n; i++) {
+                const nextC = createNode('C', [], (i + 1).toString());
+                for(let h=0; h<(i === n - 1 ? 3 : 2); h++) nextC.children.push(createNode('H'));
+                current.children.push(nextC);
+                current = nextC;
+            }
+            const cNeighbors = root.children.filter(c => c.type === 'C').length;
+            for(let h=0; h<(4 - cNeighbors); h++) root.children.push(createNode('H'));
+            return { name, root };
+        }
+
+        ISOMERS[1].push({ name: "メタン", root: createNode('C', [createNode('H'),createNode('H'),createNode('H'),createNode('H')], "1") });
+        ISOMERS[2].push(generateLinear(2, "エタン"));
+        ISOMERS[3].push(generateLinear(3, "プロパン"));
+        ISOMERS[4].push(generateLinear(4, "n-ブタン"));
+        ISOMERS[4].push({ name: "イソブタン", root: (function(){
+            const c2 = createNode('C', [createNode('H')], "2");
+            c2.children.push(createNode('C', [createNode('H'),createNode('H'),createNode('H')], "1"));
+            c2.children.push(createNode('C', [createNode('H'),createNode('H'),createNode('H')], "3"));
+            c2.children.push(createNode('C', [createNode('H'),createNode('H'),createNode('H')], "M"));
+            return c2;
+        })()});
+        for(let i=5; i<=8; i++) ISOMERS[i].push(generateLinear(i, `n-アルカン(C${i})`));
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 10);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0xf3f4f6, 1);
+            document.body.appendChild(renderer.domElement);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            const light = new THREE.DirectionalLight(0xffffff, 0.6);
+            light.position.set(5, 10, 7);
+            scene.add(light);
+            moleculeGroup = new THREE.Group();
+            scene.add(moleculeGroup);
+            setupInteractions();
+            updateUI();
+            animate();
+            
+            // Generate QR for current URL
+            new QRCode(document.getElementById("qrcode"), {
+                text: window.location.href,
+                width: 200,
+                height: 200
+            });
+        }
+
+        function build3D(node, position, incomingVec) {
+            const isC = node.type === 'C';
+            const mat = new THREE.MeshPhongMaterial({ color: isC ? 0x333333 : 0xadd8e6 });
+            const mesh = new THREE.Mesh(new THREE.SphereGeometry(isC ? RADIUS_C : RADIUS_H, 20, 20), mat);
+            mesh.position.copy(position);
+            moleculeGroup.add(mesh);
+
+            if (isC && showLabels && node.iupac) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 64; canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+                ctx.font = 'bold 40px Arial'; ctx.fillStyle = 'white'; ctx.textAlign = 'center';
+                ctx.fillText(node.iupac, 32, 45);
+                const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
+                sprite.position.copy(position); sprite.scale.set(0.6, 0.6, 1);
+                moleculeGroup.add(sprite);
+            }
+
+            const children = node.children || [];
+            if (children.length === 0) return;
+
+            const baseDirs = [
+                new THREE.Vector3(0, 1, 0), 
+                new THREE.Vector3(SIN_TETRA, COS_TETRA, 0),
+                new THREE.Vector3(SIN_TETRA * Math.cos(2*Math.PI/3), COS_TETRA, SIN_TETRA * Math.sin(2*Math.PI/3)),
+                new THREE.Vector3(SIN_TETRA * Math.cos(4*Math.PI/3), COS_TETRA, SIN_TETRA * Math.sin(4*Math.PI/3))
+            ];
+
+            let targetDirs = [];
+            if (!incomingVec) {
+                targetDirs = baseDirs;
+            } else {
+                const qAlign = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), incomingVec.clone().negate());
+                const twist = Math.PI + (rotationMap[node.id] || 0);
+                const qFinal = qAlign.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), twist));
+                targetDirs = [baseDirs[1], baseDirs[2], baseDirs[3]].map(v => v.clone().applyQuaternion(qFinal));
+            }
+
+            for(let i=0; i<children.length; i++) {
+                const child = children[i];
+                if (i >= targetDirs.length) break;
+                const dir = targetDirs[i];
+                const childPos = position.clone().add(dir.clone().multiplyScalar(child.type === 'C' ? BOND_CC : BOND_CH));
+                const bDir = new THREE.Vector3().subVectors(childPos, position);
+                const bMesh = new THREE.Mesh(new THREE.CylinderGeometry(child.type==='C'?0.1:0.05, child.type==='C'?0.1:0.05, bDir.length(), 10), new THREE.MeshPhongMaterial({ color: 0xcccccc, transparent: showElectrons, opacity: showElectrons?0.3:1 }));
+                bMesh.position.copy(position).add(bDir.clone().multiplyScalar(0.5));
+                bMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), bDir.clone().normalize());
+                moleculeGroup.add(bMesh);
+
+                if (showElectrons) {
+                    const eGeo = new THREE.SphereGeometry(RADIUS_E, 8, 8), eMat = new THREE.MeshPhongMaterial({ color: 0xffff00 });
+                    const side = new THREE.Vector3().crossVectors(bDir, Math.abs(bDir.y)<0.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0)).normalize();
+                    [-0.1, 0.1].forEach(off => { const e = new THREE.Mesh(eGeo, eMat); e.position.copy(bMesh.position).add(side.clone().multiplyScalar(off)); moleculeGroup.add(e); });
+                }
+                build3D(child, childPos, dir);
+            }
+        }
+
+        function updateMolecule() {
+            while(moleculeGroup.children.length > 0) moleculeGroup.remove(moleculeGroup.children[0]);
+            const iso = ISOMERS[document.getElementById('carbonSelect').value][currentIsomerIndex];
+            if (iso.root) build3D(iso.root, new THREE.Vector3(0,0,0), null);
+            const box = new THREE.Box3().setFromObject(moleculeGroup);
+            const center = new THREE.Vector3(); box.getCenter(center);
+            moleculeGroup.children.forEach(c => c.position.sub(center));
+        }
+
+        function updateUI() {
+            const carbonCount = document.getElementById('carbonSelect').value;
+            const isomerList = ISOMERS[carbonCount];
+            const btnContainer = document.getElementById('isomerButtons');
+            btnContainer.innerHTML = '';
+            document.getElementById('isomerControls').classList.toggle('hidden', isomerList.length <= 1);
+            isomerList.forEach((iso, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `struct-btn text-[10px] py-1.5 px-3 rounded-lg flex-1 font-bold ${idx === currentIsomerIndex ? 'active' : ''}`;
+                btn.innerText = iso.name;
+                btn.onclick = () => { currentIsomerIndex = idx; rotationMap = {}; rotationFlags = {}; updateUI(); };
+                btnContainer.appendChild(btn);
+            });
+            document.getElementById('molTitle').innerText = isomerList[currentIsomerIndex].name;
+            const rotContainer = document.getElementById('rotationControls');
+            rotContainer.innerHTML = ''; activeControls = [];
+            function findRot(node, parent) {
+                if (node.type === 'C' && parent) {
+                    const id = node.id; if (!(id in rotationMap)) rotationMap[id] = 0;
+                    const btn = document.createElement('button');
+                    btn.className = "bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg w-full text-[10px] flex justify-between items-center" + (rotationFlags[id] ? "" : " opacity-40");
+                    btn.innerHTML = `<span>C${parent.iupac}-C${node.iupac||'?'} 回転</span><span>${rotationFlags[id]?'ON':'OFF'}</span>`;
+                    btn.onclick = () => { rotationFlags[id] = !rotationFlags[id]; updateUI(); };
+                    rotContainer.appendChild(btn);
+                    activeControls.push({id, btn});
+                }
+                if (node.children) node.children.forEach(c => findRot(c, node.type==='C'?node:null));
+            }
+            findRot(isomerList[currentIsomerIndex].root, null);
+            updateMolecule();
+        }
+
+        function setupInteractions() {
+            let dragging = false, px, py;
+            const start = (e) => { dragging = true; const t = e.touches?.[0] || e; px = t.clientX; py = t.clientY; };
+            const move = (e) => { if (!dragging) return; const t = e.touches?.[0] || e; moleculeGroup.rotation.y += (t.clientX - px) * 0.01; moleculeGroup.rotation.x += (t.clientY - py) * 0.01; px = t.clientX; py = t.clientY; };
+            renderer.domElement.addEventListener('mousedown', start); renderer.domElement.addEventListener('touchstart', start);
+            window.addEventListener('mouseup', () => dragging = false); window.addEventListener('touchend', () => dragging = false);
+            window.addEventListener('mousemove', move); window.addEventListener('touchmove', move);
+
+            document.getElementById('carbonSelect').onchange = () => { currentIsomerIndex = 0; rotationMap = {}; rotationFlags = {}; updateUI(); };
+            document.getElementById('toggleLabels').onclick = () => { showLabels = !showLabels; updateMolecule(); };
+            document.getElementById('toggleElectrons').onclick = () => { showElectrons = !showElectrons; updateMolecule(); };
+            document.getElementById('showQR').onclick = () => { document.getElementById('qrModal').classList.remove('hidden'); };
+            document.getElementById('autoPlayBtn').onclick = function() {
+                isGlobalAutoPlaying = !isGlobalAutoPlaying;
+                activeControls.forEach(c => rotationFlags[c.id] = isGlobalAutoPlaying);
+                this.innerText = isGlobalAutoPlaying ? "自動回転 OFF" : "自動回転 ON";
+                updateUI();
+            };
+            document.getElementById('startAR').onclick = () => {
+                const exporter = new THREE.GLTFExporter();
+                exporter.parse(moleculeGroup, (gltf) => {
+                    const blob = new Blob([JSON.stringify(gltf)], { type: 'application/json' });
+                    const ar = document.getElementById('ar-viewer');
+                    ar.src = URL.createObjectURL(blob);
+                    ar.activateAR();
+                });
+            };
+        }
+
+        function resetView() { moleculeGroup.rotation.set(0.3, 0.5, 0); }
+        function animate() {
+            requestAnimationFrame(animate);
+            let update = false;
+            for(let id in rotationFlags) if(rotationFlags[id]) { rotationMap[id] += 0.02; update = true; }
+            if(update) updateMolecule();
+            renderer.render(scene, camera);
+        }
+        window.onload = init;
+        window.onresize = () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
+    </script>
+</body>
+</html>
