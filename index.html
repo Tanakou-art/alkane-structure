@@ -11,10 +11,21 @@
     <meta name="apple-mobile-web-app-title" content="アルカン構造">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1048/1048455.png">
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <!-- Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+                "three/examples/jsm/exporters/GLTFExporter": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/exporters/GLTFExporter.js"
+            }
+        }
+    </script>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Model Viewer -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
     
     <style>
         body { margin: 0; overflow: hidden; background-color: #f3f4f6; color: #1f2937; font-family: sans-serif; touch-action: manipulation; }
@@ -27,7 +38,7 @@
             background: rgba(255,255,255,0.95); 
             padding: 15px; 
             border-radius: 12px; 
-            max-width: 280px; 
+            max-width: 300px; 
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
             border: 1px solid #e5e7eb; 
             max-height: 85vh; 
@@ -55,12 +66,12 @@
         .info { position: absolute; bottom: 20px; left: 20px; z-index: 10; background: rgba(255,255,255,0.9); padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; max-width: calc(100% - 40px); }
         #ar-viewer { display: none; }
         .ar-btn { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
-        .struct-btn { background: #fff; border: 1px solid #d1d5db; color: #374151; }
+        .struct-btn { background: #fff; border: 1px solid #d1d5db; color: #374151; min-width: calc(50% - 0.5rem); }
         .struct-btn.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
         .hidden { display: none; }
         
         @media (max-width: 768px) {
-            .controls { top: 10px; left: 10px; width: 240px; padding: 12px; }
+            .controls { top: 10px; left: 10px; width: 260px; padding: 12px; }
             .toggle-ui-btn { top: 10px; left: 10px; }
             .info { bottom: 10px; left: 10px; }
         }
@@ -68,7 +79,6 @@
 </head>
 <body>
 
-    <!-- UI出し入れ用ボタン -->
     <button id="toggleUIPanel" class="toggle-ui-btn hidden">メニュー表示</button>
 
     <div id="controlsPanel" class="controls">
@@ -78,8 +88,8 @@
         </div>
         
         <div class="mb-3">
-            <label class="block mb-1 text-xs font-semibold">炭素数:</label>
-            <select id="carbonSelect" class="bg-white border border-gray-300 rounded-lg p-2 w-full text-sm outline-none">
+            <label class="block mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">炭素数</label>
+            <select id="carbonSelect" class="bg-white border border-gray-300 rounded-lg p-2.5 w-full text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="1" selected>C1: メタン</option>
                 <option value="2">C2: エタン</option>
                 <option value="3">C3: プロパン</option>
@@ -91,104 +101,134 @@
             </select>
         </div>
 
-        <div id="isomerControls" class="mb-3 hidden">
-            <label class="block mb-1 text-xs font-semibold">異性体:</label>
-            <div id="isomerButtons" class="flex gap-1.5 flex-wrap"></div>
+        <div id="isomerControls" class="mb-4">
+            <label id="isomerLabel" class="block mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">異性体を選択</label>
+            <div id="isomerButtons" class="flex gap-2 flex-wrap max-h-48 overflow-y-auto pr-1"></div>
         </div>
 
-        <div id="rotationControls" class="mb-3 space-y-1.5 max-h-40 overflow-y-auto pr-1"></div>
+        <div id="rotationControls" class="mb-4 space-y-1.5 border-t border-gray-100 pt-3"></div>
 
         <div class="grid grid-cols-2 gap-2 mb-3">
-            <button id="toggleLabels" class="bg-blue-500 text-white font-bold py-2 rounded-xl text-[10px]">炭素番号</button>
-            <button id="toggleElectrons" class="bg-amber-500 text-white font-bold py-2 rounded-xl text-[10px]">電子対</button>
+            <button id="toggleLabels" class="bg-blue-500 text-white font-bold py-2 rounded-xl text-[10px] hover:bg-blue-600 transition">炭素番号</button>
+            <button id="toggleElectrons" class="bg-amber-500 text-white font-bold py-2 rounded-xl text-[10px] hover:bg-amber-600 transition">電子対</button>
         </div>
 
-        <button id="autoPlayBtn" class="bg-indigo-600 text-white text-[10px] w-full py-2 rounded-lg font-bold mb-2">自動回転 ON</button>
-        <button onclick="resetView()" class="bg-white border border-gray-100 py-2 rounded-lg text-[10px] text-gray-500 font-bold w-full mb-3">視点リセット</button>
+        <button id="autoPlayBtn" class="bg-indigo-600 text-white text-[10px] w-full py-2 rounded-lg font-bold mb-2 shadow-sm">自動回転 ON</button>
         
-        <button id="startAR" class="ar-btn text-white font-bold py-3 rounded-xl w-full flex items-center justify-center gap-2 shadow-lg text-sm">
-            空間モードで見る
+        <div class="mb-4">
+            <button id="resetViewBtn" class="bg-white border border-gray-200 py-2 rounded-lg text-[10px] text-gray-500 font-bold w-full hover:bg-gray-50">視点リセット</button>
+        </div>
+        
+        <button id="startAR" class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-3 rounded-xl w-full text-sm hover:brightness-110 transition">
+            空間モードで見る (AR)
         </button>
     </div>
 
-    <!-- AR機能用 -->
-    <model-viewer id="ar-viewer" ar ar-modes="webxr quick-look" camera-controls touch-action="none"></model-viewer>
+    <!-- Hidden AR Viewer -->
+    <model-viewer id="ar-viewer" ar ar-modes="webxr quick-look" style="display:none;"></model-viewer>
 
     <div id="description" class="info">
         <h2 id="molTitle" class="font-bold text-sm text-gray-800">メタン</h2>
-        <p class="text-[10px] text-gray-600">iPadなら「ホーム画面に追加」でアプリ化できます。</p>
+        <p id="molDesc" class="text-[10px] text-gray-600">炭素原子(黒)と水素原子(水色)の結合角は約109.5度です。</p>
     </div>
 
-    <script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter';
+
         let scene, camera, renderer, moleculeGroup;
         let showElectrons = false, showLabels = false, currentIsomerIndex = 0, isGlobalAutoPlaying = false;
         let rotationMap = {}, rotationFlags = {}, activeControls = [];
 
         const BOND_CC = 1.54, BOND_CH = 1.09, RADIUS_C = 0.4, RADIUS_H = 0.25, RADIUS_E = 0.08;
-        const SIN_TETRA = Math.sqrt(8/9), COS_TETRA = -1/3;
+        const TETRA_ANGLE = Math.acos(-1/3);
+        const BEND_ANGLE = Math.PI - TETRA_ANGLE;
 
         function createNode(type, children = [], iupac = null) {
-            return { type, id: Math.random().toString(36).substr(2, 9), children, iupac };
+            return { type, id: Math.random().toString(36).substr(2, 9), children: [...children], iupac };
+        }
+
+        function fillH(node) {
+            if (!node || node.type !== 'C') return node;
+            const cNeighbors = node.children.filter(c => c.type === 'C').length;
+            const hCount = 4 - cNeighbors;
+            for(let i=0; i < hCount; i++) node.children.push(createNode('H'));
+            node.children.forEach(child => { if (child.type === 'C') fillH(child); });
+            return node;
         }
 
         const ISOMERS = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [] };
+        const C = (num, children = []) => createNode('C', children, num.toString());
 
-        function generateLinear(n, name) {
-            const rootIdx = Math.floor((n - 1) / 2);
-            const root = createNode('C', [], (rootIdx + 1).toString());
-            let current = root;
-            for (let i = rootIdx - 1; i >= 0; i--) {
-                const nextC = createNode('C', [], (i + 1).toString());
-                for(let h=0; h<(i === 0 ? 3 : 2); h++) nextC.children.push(createNode('H'));
-                current.children.push(nextC);
-                current = nextC;
-            }
-            current = root;
-            for (let i = rootIdx + 1; i < n; i++) {
-                const nextC = createNode('C', [], (i + 1).toString());
-                for(let h=0; h<(i === n - 1 ? 3 : 2); h++) nextC.children.push(createNode('H'));
-                current.children.push(nextC);
-                current = nextC;
-            }
-            const cNeighbors = root.children.filter(c => c.type === 'C').length;
-            for(let h=0; h<(4 - cNeighbors); h++) root.children.push(createNode('H'));
-            return { name, root };
-        }
+        // C1-C3
+        ISOMERS[1].push({ name: "メタン", desc: "最も単純な炭化水素。", root: fillH(C(1)) });
+        ISOMERS[2].push({ name: "エタン", desc: "炭素2つのアルカン。", root: fillH(C(1, [C(2)])) });
+        ISOMERS[3].push({ name: "プロパン", desc: "燃料に広く使われます。", root: fillH(C(2, [C(1), C(3)])) });
 
-        ISOMERS[1].push({ name: "メタン", root: createNode('C', [createNode('H'),createNode('H'),createNode('H'),createNode('H')], "1") });
-        ISOMERS[2].push(generateLinear(2, "エタン"));
-        ISOMERS[3].push(generateLinear(3, "プロパン"));
-        ISOMERS[4].push(generateLinear(4, "n-ブタン"));
-        ISOMERS[4].push({ name: "イソブタン", root: (function(){
-            const c2 = createNode('C', [createNode('H')], "2");
-            c2.children.push(createNode('C', [createNode('H'),createNode('H'),createNode('H')], "1"));
-            c2.children.push(createNode('C', [createNode('H'),createNode('H'),createNode('H')], "3"));
-            c2.children.push(createNode('C', [createNode('H'),createNode('H'),createNode('H')], "M"));
-            return c2;
-        })()});
-        for(let i=5; i<=8; i++) ISOMERS[i].push(generateLinear(i, `n-アルカン(C${i})`));
+        // C4
+        ISOMERS[4].push({ name: "ブタン", desc: "炭素4つの直鎖アルカン。", root: fillH(C(2, [C(1), C(3, [C(4)])])) });
+        ISOMERS[4].push({ name: "2-メチルプロパン", desc: "イソブタン。初の枝分かれ構造。", root: fillH(C(2, [C(1), C(3), C("M")])) });
+
+        // C5
+        ISOMERS[5].push({ name: "ペンタン", desc: "炭素5つの直鎖アルカン。", root: fillH(C(3, [C(2, [C(1)]), C(4, [C(5)])])) });
+        ISOMERS[5].push({ name: "2-メチルブタン", desc: "イソペンタン。", root: fillH(C(2, [C(1), C(3, [C(4)]), C("M")])) });
+        ISOMERS[5].push({ name: "2,2-ジメチルプロパン", desc: "ネオペンタン。非常にコンパクトです。", root: fillH(C(2, [C(1), C(3), C("M1"), C("M2")])) });
+
+        // C6
+        ISOMERS[6].push({ name: "ヘキサン", desc: "直鎖のヘキサン。", root: fillH(C(3, [C(2, [C(1)]), C(4, [C(5, [C(6)])])])) });
+        ISOMERS[6].push({ name: "2-メチルペンタン", desc: "主鎖5本の異性体。", root: fillH(C(2, [C(1), C(3, [C(4, [C(5)])]), C("M")])) });
+        ISOMERS[6].push({ name: "3-メチルペンタン", desc: "主鎖の真ん中に枝がある構造。", root: fillH(C(3, [C(2, [C(1)]), C(4, [C(5)]), C("M")])) });
+        ISOMERS[6].push({ name: "2,2-ジメチルブタン", desc: "主鎖4本に同じ位置の枝。", root: fillH(C(2, [C(1), C(3, [C(4)]), C("M1"), C("M2")])) });
+        ISOMERS[6].push({ name: "2,3-ジメチルブタン", desc: "主鎖4本に異なる位置の枝。", root: fillH(C(2, [C(1), C(3, [C(4), C("M2")]), C("M1")])) });
+
+        // C7
+        ISOMERS[7].push({ name: "ヘプタン", desc: "直鎖のヘプタン。", root: fillH(C(4, [C(3, [C(2, [C(1)])]), C(5, [C(6, [C(7)])])])) });
+        ISOMERS[7].push({ name: "2-メチルヘキサン", desc: "ヘプタンの異性体(代表例)。", root: fillH(C(2, [C(1), C(3, [C(4, [C(5, [C(6)])])]), C("M")])) });
+        ISOMERS[7].push({ name: "3-メチルヘキサン", desc: "ヘプタンの異性体(代表例)。", root: fillH(C(3, [C(2, [C(1)]), C(4, [C(5, [C(6)])]), C("M")])) });
+        ISOMERS[7].push({ name: "2,2-ジメチルペンタン", desc: "ヘプタンの異性体(代表例)。", root: fillH(C(2, [C(1), C(3, [C(4, [C(5)])]), C("M1"), C("M2")])) });
+        ISOMERS[7].push({ name: "2,3-ジメチルペンタン", desc: "ヘプタンの異性体(代表例)。", root: fillH(C(3, [C(2, [C(1), C("M1")]), C(4, [C(5)]), C("M2")])) });
+        ISOMERS[7].push({ name: "2,4-ジメチルペンタン", desc: "ヘプタンの異性体(代表例)。", root: fillH(C(3, [C(2, [C(1), C("M1")]), C(4, [C(5), C("M2")])])) });
+        ISOMERS[7].push({ name: "3,3-ジメチルペンタン", desc: "ヘプタンの異性体(代表例)。", root: fillH(C(3, [C(2, [C(1)]), C(4, [C(5)]), C("M1"), C("M2")])) });
+        ISOMERS[7].push({ name: "3-エチルペンタン", desc: "エチル基の枝分かれ。", root: fillH(C(3, [C(2, [C(1)]), C(4, [C(5)]), C("E1", [C("E2")])])) });
+        ISOMERS[7].push({ name: "2,2,3-トリメチルブタン", desc: "ヘプタンの異性体(代表例)。", root: fillH(C(2, [C(1), C(3, [C(4), C("M3")]), C("M1"), C("M2")])) });
+
+        // C8
+        ISOMERS[8].push({ name: "オクタン", desc: "直鎖。横方向に伸びるよう配置しています。", root: fillH(C(4, [C(3, [C(2, [C(1)])]), C(5, [C(6, [C(7, [C(8)])])])])) });
+        ISOMERS[8].push({ name: "イソオクタン", desc: "2,2,4-トリメチルペンタン。オクタン価100の基準。", root: fillH(C(4, [C(3, [C(2, [C(1), C("M1"), C("M2")])]), C(5), C("M3")])) });
+        ISOMERS[8].push({ name: "2-メチルヘプタン", desc: "主鎖が7本で、2番目に枝分かれがある構造。", root: fillH(C(4, [C(3, [C(2, [C(1), C("M")])]), C(5, [C(6, [C(7)])])])) });
 
         function init() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 0, 10);
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setClearColor(0xf3f4f6, 1);
-            document.body.appendChild(renderer.domElement);
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-            const light = new THREE.DirectionalLight(0xffffff, 0.6);
-            light.position.set(5, 10, 7);
-            scene.add(light);
-            moleculeGroup = new THREE.Group();
-            scene.add(moleculeGroup);
-            setupInteractions();
-            updateUI();
-            animate();
+            try {
+                scene = new THREE.Scene();
+                camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+                
+                // カメラ位置: Yを少し下げて、正面よりやや下から見上げる感じに
+                camera.position.set(0, -0.5, 10);
+                
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.setClearColor(0xf3f4f6, 1);
+                document.body.appendChild(renderer.domElement);
+                
+                scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+                const light = new THREE.DirectionalLight(0xffffff, 0.6);
+                light.position.set(5, 10, 7);
+                scene.add(light);
+                
+                moleculeGroup = new THREE.Group();
+                scene.add(moleculeGroup);
+                
+                setupInteractions();
+                updateUI();
+                animate();
+            } catch (e) {
+                console.error("Initialization failed:", e);
+            }
         }
 
-        function build3D(node, position, incomingVec) {
+        function build3D(node, position, incomingVec, refNormal) {
+            if (!node || !moleculeGroup) return;
             const isC = node.type === 'C';
             const mat = new THREE.MeshPhongMaterial({ color: isC ? 0x333333 : 0xadd8e6 });
             const mesh = new THREE.Mesh(new THREE.SphereGeometry(isC ? RADIUS_C : RADIUS_H, 20, 20), mat);
@@ -197,10 +237,10 @@
 
             if (isC && showLabels && node.iupac) {
                 const canvas = document.createElement('canvas');
-                canvas.width = 64; canvas.height = 64;
+                canvas.width = 128; canvas.height = 128;
                 const ctx = canvas.getContext('2d');
-                ctx.font = 'bold 40px Arial'; ctx.fillStyle = 'white'; ctx.textAlign = 'center';
-                ctx.fillText(node.iupac, 32, 45);
+                ctx.font = 'bold 80px Arial'; ctx.fillStyle = 'white'; ctx.textAlign = 'center';
+                ctx.fillText(node.iupac, 64, 90);
                 const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
                 sprite.position.copy(position); sprite.scale.set(0.6, 0.6, 1);
                 moleculeGroup.add(sprite);
@@ -209,30 +249,35 @@
             const children = node.children || [];
             if (children.length === 0) return;
 
-            const baseDirs = [
-                new THREE.Vector3(0, 1, 0), 
-                new THREE.Vector3(SIN_TETRA, COS_TETRA, 0),
-                new THREE.Vector3(SIN_TETRA * Math.cos(2*Math.PI/3), COS_TETRA, SIN_TETRA * Math.sin(2*Math.PI/3)),
-                new THREE.Vector3(SIN_TETRA * Math.cos(4*Math.PI/3), COS_TETRA, SIN_TETRA * Math.sin(4*Math.PI/3))
-            ];
-
             let targetDirs = [];
             if (!incomingVec) {
-                targetDirs = baseDirs;
+                const halfTetra = TETRA_ANGLE / 2;
+                const sinH = Math.sin(halfTetra), cosH = Math.cos(halfTetra);
+                targetDirs = [
+                    new THREE.Vector3(-sinH, cosH, 0), new THREE.Vector3(sinH, cosH, 0),
+                    new THREE.Vector3(0, -cosH, sinH), new THREE.Vector3(0, -cosH, -sinH)
+                ];
             } else {
-                const qAlign = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), incomingVec.clone().negate());
-                const twist = Math.PI + (rotationMap[node.id] || 0);
-                const qFinal = qAlign.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), twist));
-                targetDirs = [baseDirs[1], baseDirs[2], baseDirs[3]].map(v => v.clone().applyQuaternion(qFinal));
+                const axis = incomingVec.clone().normalize();
+                const tangent = new THREE.Vector3().crossVectors(refNormal, axis).normalize();
+                let twist = Math.PI + (node.type === 'C' ? (rotationMap[node.id] || 0) : 0);
+                const bentNormal = tangent.clone().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(axis, twist));
+                const finalDir = axis.clone().multiplyScalar(Math.cos(BEND_ANGLE)).add(bentNormal.multiplyScalar(Math.sin(BEND_ANGLE))).normalize();
+                targetDirs = [0, 1, 2].map(k => finalDir.clone().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(axis, k * (2 * Math.PI / 3))));
             }
 
             for(let i=0; i<children.length; i++) {
                 const child = children[i];
                 if (i >= targetDirs.length) break;
                 const dir = targetDirs[i];
-                const childPos = position.clone().add(dir.clone().multiplyScalar(child.type === 'C' ? BOND_CC : BOND_CH));
+                const bondLen = child.type === 'C' ? BOND_CC : BOND_CH;
+                const childPos = position.clone().add(dir.clone().multiplyScalar(bondLen));
+                
                 const bDir = new THREE.Vector3().subVectors(childPos, position);
-                const bMesh = new THREE.Mesh(new THREE.CylinderGeometry(child.type==='C'?0.1:0.05, child.type==='C'?0.1:0.05, bDir.length(), 10), new THREE.MeshPhongMaterial({ color: 0xcccccc, transparent: showElectrons, opacity: showElectrons?0.3:1 }));
+                const bMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(child.type==='C'?0.08:0.04, child.type==='C'?0.08:0.04, bDir.length(), 12), 
+                    new THREE.MeshPhongMaterial({ color: 0xcccccc, transparent: showElectrons, opacity: showElectrons?0.3:1 })
+                );
                 bMesh.position.copy(position).add(bDir.clone().multiplyScalar(0.5));
                 bMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), bDir.clone().normalize());
                 moleculeGroup.add(bMesh);
@@ -240,50 +285,101 @@
                 if (showElectrons) {
                     const eGeo = new THREE.SphereGeometry(RADIUS_E, 8, 8), eMat = new THREE.MeshPhongMaterial({ color: 0xffff00 });
                     const side = new THREE.Vector3().crossVectors(bDir, Math.abs(bDir.y)<0.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0)).normalize();
-                    [-0.1, 0.1].forEach(off => { const e = new THREE.Mesh(eGeo, eMat); e.position.copy(bMesh.position).add(side.clone().multiplyScalar(off)); moleculeGroup.add(e); });
+                    [-0.1, 0.1].forEach(off => { 
+                        const e = new THREE.Mesh(eGeo, eMat); 
+                        e.position.copy(bMesh.position).add(side.clone().multiplyScalar(off)); 
+                        moleculeGroup.add(e); 
+                    });
                 }
-                build3D(child, childPos, dir);
+                
+                const curAxis = incomingVec || new THREE.Vector3(0,0,1);
+                const specificNormal = new THREE.Vector3().crossVectors(curAxis, dir).normalize();
+                
+                build3D(child, childPos, dir, specificNormal);
             }
         }
 
         function updateMolecule() {
+            if (!moleculeGroup) return;
             while(moleculeGroup.children.length > 0) moleculeGroup.remove(moleculeGroup.children[0]);
-            const iso = ISOMERS[document.getElementById('carbonSelect').value][currentIsomerIndex];
-            if (iso.root) build3D(iso.root, new THREE.Vector3(0,0,0), null);
-            const box = new THREE.Box3().setFromObject(moleculeGroup);
-            const center = new THREE.Vector3(); box.getCenter(center);
-            moleculeGroup.children.forEach(c => c.position.sub(center));
+            
+            const carbonValue = document.getElementById('carbonSelect').value;
+            const iso = ISOMERS[carbonValue][currentIsomerIndex];
+            
+            if (iso && iso.root) {
+                build3D(iso.root, new THREE.Vector3(0,0,0), null);
+                const box = new THREE.Box3().setFromObject(moleculeGroup);
+                const center = new THREE.Vector3(); 
+                box.getCenter(center);
+                moleculeGroup.children.forEach(c => c.position.sub(center));
+            }
+            resetView();
         }
 
         function updateUI() {
-            const carbonCount = document.getElementById('carbonSelect').value;
+            const carbonSelect = document.getElementById('carbonSelect');
+            const carbonCount = carbonSelect.value;
             const isomerList = ISOMERS[carbonCount];
             const btnContainer = document.getElementById('isomerButtons');
+            const label = document.getElementById('isomerLabel');
+
+            if (carbonCount === "8") {
+                label.innerText = "異性体を選択（代表例）";
+            } else {
+                label.innerText = "異性体を選択";
+            }
+
             btnContainer.innerHTML = '';
             document.getElementById('isomerControls').classList.toggle('hidden', isomerList.length <= 1);
+            
             isomerList.forEach((iso, idx) => {
                 const btn = document.createElement('button');
-                btn.className = `struct-btn text-[10px] py-1.5 px-3 rounded-lg flex-1 font-bold ${idx === currentIsomerIndex ? 'active' : ''}`;
+                btn.className = `struct-btn text-[9px] py-2 px-2 rounded-lg font-bold shadow-sm transition ${idx === currentIsomerIndex ? 'active' : 'hover:bg-gray-50'}`;
                 btn.innerText = iso.name;
-                btn.onclick = () => { currentIsomerIndex = idx; rotationMap = {}; rotationFlags = {}; updateUI(); };
+                btn.onclick = () => { 
+                    currentIsomerIndex = idx; 
+                    rotationMap = {}; 
+                    rotationFlags = {}; 
+                    updateUI(); 
+                };
                 btnContainer.appendChild(btn);
             });
-            document.getElementById('molTitle').innerText = isomerList[currentIsomerIndex].name;
+
+            document.getElementById('molTitle').innerText = isomerList[currentIsomerIndex]?.name || "";
+            // Ensure desc exists to avoid null error
+            const desc = isomerList[currentIsomerIndex]?.desc || "";
+            const descEl = document.getElementById('molDesc');
+            if(descEl) descEl.innerText = desc;
+            
             const rotContainer = document.getElementById('rotationControls');
             rotContainer.innerHTML = ''; activeControls = [];
+            
             function findRot(node, parent) {
                 if (node.type === 'C' && parent) {
-                    const id = node.id; if (!(id in rotationMap)) rotationMap[id] = 0;
+                    const id = node.id; 
+                    if (!(id in rotationMap)) rotationMap[id] = 0;
                     const btn = document.createElement('button');
-                    btn.className = "bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg w-full text-[10px] flex justify-between items-center" + (rotationFlags[id] ? "" : " opacity-40");
-                    btn.innerHTML = `<span>C${parent.iupac}-C${node.iupac||'?'} 回転</span><span>${rotationFlags[id]?'ON':'OFF'}</span>`;
+                    btn.className = "bg-emerald-500 text-white font-bold py-1.5 px-3 rounded-lg w-full text-[9px] flex justify-between items-center transition" + (rotationFlags[id] ? " ring-2 ring-emerald-300" : " opacity-40");
+                    
+                    let label = "結合回転";
+                    if (parent.iupac && node.iupac) {
+                        label = `C${parent.iupac}-C${node.iupac} 回転`;
+                    } else if (node.iupac) {
+                        label = `側鎖(C${node.iupac}) 回転`;
+                    } else if (parent.iupac) {
+                        label = `側鎖(C${parent.iupac}) 回転`;
+                    } else {
+                        label = `側鎖 回転`;
+                    }
+
+                    btn.innerHTML = `<span>${label}</span><span>${rotationFlags[id]?'ON':'OFF'}</span>`;
                     btn.onclick = () => { rotationFlags[id] = !rotationFlags[id]; updateUI(); };
                     rotContainer.appendChild(btn);
                     activeControls.push({id, btn});
                 }
                 if (node.children) node.children.forEach(c => findRot(c, node.type==='C'?node:null));
             }
-            findRot(isomerList[currentIsomerIndex].root, null);
+            if (isomerList[currentIsomerIndex]) findRot(isomerList[currentIsomerIndex].root, null);
             updateMolecule();
         }
 
@@ -295,51 +391,60 @@
             window.addEventListener('mouseup', () => dragging = false); window.addEventListener('touchend', () => dragging = false);
             window.addEventListener('mousemove', move); window.addEventListener('touchmove', move);
 
-            document.getElementById('carbonSelect').onchange = () => { currentIsomerIndex = 0; rotationMap = {}; rotationFlags = {}; updateUI(); };
-            document.getElementById('toggleLabels').onclick = () => { showLabels = !showLabels; updateMolecule(); };
-            document.getElementById('toggleElectrons').onclick = () => { showElectrons = !showElectrons; updateMolecule(); };
-            
-            // UIパネルの表示・非表示
-            const panel = document.getElementById('controlsPanel');
-            const showBtn = document.getElementById('toggleUIPanel');
-            const hideBtn = document.getElementById('hideUIPanel');
-
-            hideBtn.onclick = () => {
-                panel.classList.add('minimized');
-                showBtn.classList.remove('hidden');
-            };
-            showBtn.onclick = () => {
-                panel.classList.remove('minimized');
-                showBtn.classList.add('hidden');
-            };
-
-            document.getElementById('autoPlayBtn').onclick = function() {
+            document.getElementById('carbonSelect').addEventListener('change', () => { currentIsomerIndex = 0; updateUI(); });
+            document.getElementById('toggleLabels').addEventListener('click', () => { showLabels = !showLabels; updateMolecule(); });
+            document.getElementById('toggleElectrons').addEventListener('click', () => { showElectrons = !showElectrons; updateMolecule(); });
+            document.getElementById('hideUIPanel').addEventListener('click', () => { document.getElementById('controlsPanel').classList.add('minimized'); document.getElementById('toggleUIPanel').classList.remove('hidden'); });
+            document.getElementById('toggleUIPanel').addEventListener('click', () => { document.getElementById('controlsPanel').classList.remove('minimized'); document.getElementById('toggleUIPanel').classList.add('hidden'); });
+            document.getElementById('resetViewBtn').addEventListener('click', resetView);
+            document.getElementById('autoPlayBtn').addEventListener('click', function() {
                 isGlobalAutoPlaying = !isGlobalAutoPlaying;
                 activeControls.forEach(c => rotationFlags[c.id] = isGlobalAutoPlaying);
-                this.innerText = isGlobalAutoPlaying ? "自動回転 OFF" : "自動回転 ON";
+                this.innerText = isGlobalAutoPlaying ? "全回転 OFF" : "全回転 ON";
                 updateUI();
-            };
-            document.getElementById('startAR').onclick = () => {
-                const exporter = new THREE.GLTFExporter();
+            });
+            document.getElementById('startAR').addEventListener('click', () => {
+                if (typeof THREE.GLTFExporter === 'undefined') return;
+                const exporter = new GLTFExporter();
                 exporter.parse(moleculeGroup, (gltf) => {
                     const blob = new Blob([JSON.stringify(gltf)], { type: 'application/json' });
                     const ar = document.getElementById('ar-viewer');
-                    ar.src = URL.createObjectURL(blob);
-                    ar.activateAR();
-                });
-            };
+                    if (ar) {
+                        ar.src = URL.createObjectURL(blob);
+                        ar.activateAR();
+                    }
+                }, { binary: false });
+            });
         }
 
-        function resetView() { moleculeGroup.rotation.set(0.3, 0.5, 0); }
+        function resetView() { 
+            if (moleculeGroup) {
+                const carbonValue = parseInt(document.getElementById('carbonSelect').value);
+                const iso = ISOMERS[carbonValue][currentIsomerIndex];
+                
+                const isLinear = iso.name.includes("プロパン") || iso.name.includes("ブタン") || iso.name.includes("ペンタン") || iso.name.includes("ヘキサン") || iso.name.includes("ヘプタン") || iso.name.includes("オクタン");
+                
+                if (isLinear && carbonValue >= 3 && !iso.name.includes("メチル") && !iso.name.includes("エチル")) {
+                    moleculeGroup.rotation.set(0.2, 0.2, -Math.PI / 2); 
+                } else {
+                    moleculeGroup.rotation.set(0.3, 0.5, 0);
+                }
+            }
+        }
+
         function animate() {
             requestAnimationFrame(animate);
-            let update = false;
-            for(let id in rotationFlags) if(rotationFlags[id]) { rotationMap[id] += 0.02; update = true; }
-            if(update) updateMolecule();
+            let updateNeeded = false;
+            for(let id in rotationFlags) if(rotationFlags[id]) { rotationMap[id] += 0.02; updateNeeded = true; }
+            if(updateNeeded) updateMolecule();
             renderer.render(scene, camera);
         }
-        window.onload = init;
-        window.onresize = () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
+        window.addEventListener('load', init);
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
